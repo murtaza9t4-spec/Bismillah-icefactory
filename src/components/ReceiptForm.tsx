@@ -17,15 +17,27 @@ export default function ReceiptForm({ settings, onSave, onPrint, onSaveAndPrint,
     date: new Date().toISOString().split('T')[0],
     customerName: '',
     golaQty: 0,
-    paymentStatus: 'Paid',
+    amountReceived: 0,
+    outstandingAmount: 0,
     totalAmount: 0,
     receivedBy: ''
   });
 
   React.useEffect(() => {
-    const total = (formData.golaQty || 0) * settings.golaPrice;
-    setFormData(prev => ({ ...prev, totalAmount: total }));
-  }, [formData.golaQty, settings]);
+    const total = (Number(formData.golaQty) || 0) * settings.golaPrice;
+    setFormData(prev => ({ 
+      ...prev, 
+      totalAmount: total
+    }));
+  }, [formData.golaQty, settings.golaPrice]);
+
+  React.useEffect(() => {
+    const outstanding = (Number(formData.totalAmount) || 0) - (Number(formData.amountReceived) || 0);
+    setFormData(prev => ({ 
+      ...prev, 
+      outstandingAmount: outstanding
+    }));
+  }, [formData.totalAmount, formData.amountReceived]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
@@ -48,7 +60,8 @@ export default function ReceiptForm({ settings, onSave, onPrint, onSaveAndPrint,
       date: new Date().toISOString().split('T')[0],
       customerName: '',
       golaQty: 0,
-      paymentStatus: 'Paid',
+      amountReceived: 0,
+      outstandingAmount: 0,
       totalAmount: 0,
       receivedBy: ''
     });
@@ -139,20 +152,34 @@ export default function ReceiptForm({ settings, onSave, onPrint, onSaveAndPrint,
 
         <div>
           <label className="block text-sm font-bold text-gray-700 mb-1">
-            Payment Status / <span className="font-sindhi">ادائيگي جي صورتحال</span>
+            Amount Received / <span className="font-sindhi">مليل رقم</span>
           </label>
-          <select
-            name="paymentStatus"
-            value={formData.paymentStatus}
-            onChange={handleChange}
-            className={cn(
-              "w-full px-4 py-2 border-2 rounded-lg focus:border-red-500 outline-none transition-all font-bold",
-              formData.paymentStatus === 'Paid' ? "border-green-200 bg-green-50 text-green-700" : "border-red-200 bg-red-50 text-red-700"
-            )}
-          >
-            <option value="Paid">Paid / ادا ٿيل</option>
-            <option value="Pending">Pending / باقي</option>
-          </select>
+          <div className="relative">
+            <span className="absolute left-3 top-2 font-bold text-gray-400">Rs.</span>
+            <input
+              type="number"
+              name="amountReceived"
+              value={formData.amountReceived}
+              onChange={handleChange}
+              className="w-full pl-12 pr-4 py-2 border-2 border-gray-200 rounded-lg focus:border-red-500 outline-none transition-all font-bold text-xl text-green-700"
+            />
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-sm font-bold text-gray-700 mb-1">
+            Outstanding Amount / <span className="font-sindhi">بقايا رقم</span>
+          </label>
+          <div className="relative">
+            <span className="absolute left-3 top-2 font-bold text-gray-400">Rs.</span>
+            <input
+              type="number"
+              name="outstandingAmount"
+              value={formData.outstandingAmount}
+              readOnly
+              className="w-full pl-12 pr-4 py-2 border-2 border-gray-200 rounded-lg bg-gray-50 outline-none font-bold text-xl text-red-700"
+            />
+          </div>
         </div>
 
         <div>

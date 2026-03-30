@@ -5,6 +5,7 @@ import ReceiptHistory from './components/ReceiptHistory';
 import Settings from './components/Settings';
 import DealersBook from './components/DealersBook';
 import PrintableReceipt from './components/PrintableReceipt';
+import ConfirmationModal from './components/ConfirmationModal';
 import { LayoutDashboard, History, Settings as SettingsIcon, PlusCircle } from 'lucide-react';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
@@ -21,6 +22,7 @@ export default function App() {
   const [settings, setSettings] = React.useState<SettingsType>(DEFAULT_SETTINGS);
   const [printingReceipt, setPrintingReceipt] = React.useState<Receipt | null>(null);
   const [isPrinting, setIsPrinting] = React.useState(false);
+  const [modal, setModal] = React.useState<{ isOpen: boolean; title: string; message: string; onConfirm: () => void } | null>(null);
 
   // Calculate Gola Summary
   const selledGolas = receipts.reduce((sum, r) => sum + (r.golaQty || 0), 0);
@@ -47,6 +49,53 @@ export default function App() {
     setActiveTab('form');
   };
 
+  const handleClearData = () => {
+    setModal({
+      isOpen: true,
+      title: 'Clear All Data',
+      message: 'Are you sure you want to clear ALL data? This cannot be undone.',
+      onConfirm: () => {
+        setReceipts([]);
+        setSettings(DEFAULT_SETTINGS);
+        localStorage.removeItem('ice_factory_receipts');
+        localStorage.removeItem('ice_factory_settings');
+      }
+    });
+  };
+
+  const handleExportData = () => {
+    const data = {
+      receipts,
+      settings,
+      exportDate: new Date().toISOString()
+    };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `IceFactory_Backup_${new Date().toISOString().split('T')[0]}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleImportData = (jsonData: string) => {
+    try {
+      const data = JSON.parse(jsonData);
+      if (data.receipts && data.settings) {
+        setReceipts(data.receipts);
+        setSettings(data.settings);
+        localStorage.setItem('ice_factory_receipts', JSON.stringify(data.receipts));
+        localStorage.setItem('ice_factory_settings', JSON.stringify(data.settings));
+        setActiveTab('history');
+      } else {
+        alert('Invalid backup file format.');
+      }
+    } catch (error) {
+      console.error('Import failed:', error);
+      alert('Failed to import data. Please check the file.');
+    }
+  };
+
   const handleSaveReceipt = (receipt: Receipt) => {
     const newReceipts = [receipt, ...receipts];
     saveReceipts(newReceipts);
@@ -63,16 +112,21 @@ export default function App() {
     handlePrint(receipt);
   };
 
-  const handleDeleteReceipt = (id: string) => {
-    if (window.confirm('Are you sure you want to delete this receipt?')) {
-      const newReceipts = receipts.filter(r => r.id !== id);
-      saveReceipts(newReceipts);
-    }
+  const handleUpdateReceipt = (updatedReceipt: Receipt) => {
+    const newReceipts = receipts.map(r => r.id === updatedReceipt.id ? updatedReceipt : r);
+    saveReceipts(newReceipts);
   };
 
-  const handleUpdateStatus = (id: string, status: 'Paid' | 'Pending') => {
-    const newReceipts = receipts.map(r => r.id === id ? { ...r, paymentStatus: status } : r);
-    saveReceipts(newReceipts);
+  const handleDeleteReceipt = (id: string) => {
+    setModal({
+      isOpen: true,
+      title: 'Delete Receipt',
+      message: 'Are you sure you want to delete this receipt?',
+      onConfirm: () => {
+        const newReceipts = receipts.filter(r => r.id !== id);
+        saveReceipts(newReceipts);
+      }
+    });
   };
 
   const handleDownloadImage = async (receipt: Receipt) => {
@@ -193,6 +247,17 @@ export default function App() {
         </div>
       )}
 
+      {/* Confirmation Modal */}
+      {modal && (
+        <ConfirmationModal
+          isOpen={modal.isOpen}
+          onClose={() => setModal(null)}
+          onConfirm={modal.onConfirm}
+          title={modal.title}
+          message={modal.message}
+        />
+      )}
+
       {/* Header */}
       <header className="bg-red-700 text-white shadow-lg sticky top-0 z-50">
         <div className="max-w-6xl mx-auto px-4 py-4 flex flex-col md:flex-row justify-between items-center gap-4">
@@ -271,7 +336,7 @@ export default function App() {
             receipts={receipts} 
             onDelete={handleDeleteReceipt} 
             onPrint={handlePrint}
-            onUpdateStatus={handleUpdateStatus}
+            onUpdateReceipt={handleUpdateReceipt}
             onDownloadImage={handleDownloadImage}
           />
         )}
@@ -284,6 +349,9 @@ export default function App() {
           <Settings 
             settings={settings} 
             onSave={saveSettings} 
+            onClearData={handleClearData}
+            onExportData={handleExportData}
+            onImportData={handleImportData}
           />
         )}
       </main>

@@ -10,7 +10,8 @@ export interface Receipt {
   date: string;
   customerName: string;
   golaQty: number;
-  paymentStatus: "Paid" | "Pending";
+  amountReceived: number;
+  outstandingAmount: number;
   totalAmount: number;
   receivedBy: string;
 }
